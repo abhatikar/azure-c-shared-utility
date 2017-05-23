@@ -215,6 +215,50 @@ BEGIN_TEST_SUITE(tlsio_openssl_compact_unittests)
         tlsio_id->concrete_io_dowork(tlsio); // dowork_poll_open_ssl (finishes Open)
         ASSERT_IO_OPEN_CALLBACK(true, IO_OPEN_OK);
     }
+    /* Tests_SRS_TLSIO_OPENSSL_COMPACT_30_040: [ tlsio_openssl_compact_open shall succeed during a 'Failed open retry' as defined at the top of this document. ]*/
+    TEST_FUNCTION(tlsio_openssl_compact__retry_open_after_open_failure__succeeds)
+    {
+        ///arrange
+        reset_callback_context_records();
+        const IO_INTERFACE_DESCRIPTION* tlsio_id = tlsio_get_interface_description();
+        CONCRETE_IO_HANDLE tlsio = tlsio_id->concrete_io_create(&good_config);
+        int open_result = tlsio_id->concrete_io_open(tlsio, on_io_open_complete, IO_OPEN_COMPLETE_CONTEXT, on_bytes_received,
+            IO_BYTES_RECEIVED_CONTEXT, on_io_error, IO_ERROR_CONTEXT);
+        ASSERT_ARE_EQUAL(int, open_result, 0);
+        ASSERT_IO_OPEN_CALLBACK(false, IO_OPEN_ERROR);
+        umock_c_reset_all_calls();
+
+
+        // dowork_poll_dns (done)
+        STRICT_EXPECTED_CALL(dns_async_is_lookup_complete(GOOD_DNS_ASYNC_HANDLE));
+        STRICT_EXPECTED_CALL(dns_async_get_ipv4(GOOD_DNS_ASYNC_HANDLE));
+        STRICT_EXPECTED_CALL(dns_async_destroy(GOOD_DNS_ASYNC_HANDLE));
+        STRICT_EXPECTED_CALL(socket_async_create(SSL_Get_IPv4_OK, SSL_good_port_number, false, NULL));
+
+        // dowork_poll_socket (done)
+        STRICT_EXPECTED_CALL(socket_async_is_create_complete(SSL_Good_Socket, IGNORED_PTR_ARG)).CopyOutArgumentBuffer_is_complete(&bool_true, sizeof_bool);
+        STRICT_EXPECTED_CALL(SSL_CTX_new(IGNORED_NUM_ARG));
+        STRICT_EXPECTED_CALL(SSL_new(IGNORED_PTR_ARG));
+        STRICT_EXPECTED_CALL(SSL_set_fd(IGNORED_PTR_ARG, IGNORED_NUM_ARG));
+
+        // dowork_poll_open_ssl (done)
+        STRICT_EXPECTED_CALL(SSL_connect(SSL_Good_Ptr)).SetReturn(SSL_CONNECT_SUCCESS);
+
+        ///act
+        tlsio_id->concrete_io_dowork(tlsio); // dowork_poll_dns (done)
+        tlsio_id->concrete_io_dowork(tlsio); // dowork_poll_socket (done)
+        tlsio_id->concrete_io_dowork(tlsio); // dowork_poll_open_ssl (done)
+        //
+
+        ///assert
+        // Check that we got the on_open callback
+        ASSERT_IO_OPEN_CALLBACK(true, IO_OPEN_OK);
+        ASSERT_ARE_EQUAL(char_ptr, umock_c_get_expected_calls(), umock_c_get_actual_calls());
+
+        ///cleanup
+        tlsio_id->concrete_io_close(tlsio, on_io_close_complete, NULL);
+        tlsio_id->concrete_io_destroy(tlsio);
+    }
 
     /* Tests_SRS_TLSIO_OPENSSL_COMPACT_30_050: [ If the tlsio_handle parameter is NULL, tlsio_openssl_compact_close shall log an error and return FAILURE. ]*/
     /* Tests_SRS_TLSIO_OPENSSL_COMPACT_30_055: [ If the on_io_close_complete parameter is NULL, tlsio_openssl_compact_close shall log an error and return FAILURE. ]*/
