@@ -24,14 +24,14 @@ typedef struct TLSIO_CONFIG_TAG
 
 // The tlsio external state values are the states of the tlsio adapter
 // as seen by the caller on the basis of calls made and callbacks received.
-#define TLSIO_STATE_EX_VALUES \
-    TLSIO_STATE_EX_CLOSED, \
-    TLSIO_STATE_EX_OPENING, \
-    TLSIO_STATE_EX_OPEN, \
-    TLSIO_STATE_EX_CLOSING, \
-    TLSIO_STATE_EX_ERROR
+#define TLSIO_STATE_EXT_VALUES \
+    TLSIO_STATE_EXT_CLOSED, \
+    TLSIO_STATE_EXT_OPENING, \
+    TLSIO_STATE_EXT_OPEN, \
+    TLSIO_STATE_EXT_CLOSING, \
+    TLSIO_STATE_EXT_ERROR
 
-DEFINE_ENUM(TLSIO_STATE_EX, TLSIO_STATE_EX_VALUES);
+DEFINE_ENUM(TLSIO_STATE_EXT, TLSIO_STATE_EXT_VALUES);
 
 // tlsio_verify_internal_state compares the supplied expected_state with the internal state
 // of the tlsio adapter and uses xlogging to log any discrepancies. It returns 0 if there

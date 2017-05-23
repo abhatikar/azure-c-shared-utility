@@ -3,7 +3,7 @@ tlsio
 
 ## Overview
 
-This specification defines generic behavior for tlsio adapters.  
+This specification defines generic behavior for tlsio adapters, which operate primarily through the `xio` interface and provide communication to remote systems over a TLS or similar secure channel.  
 
 ### Retry Behavior
 The `xio` specification allows retry sequences (open/fail/close/open) that must succeed. This means it must work to `close` and the re-`open` an adapter after an error has occurred during either an IO error or an error during the `open` sequence.
@@ -21,6 +21,8 @@ Here are some retry sequences defined for the use in requirements:
 [OpenSSL](https://www.openssl.org/)
 
 [xio.h](https://github.com/Azure/azure-c-shared-utility/blob/master/inc/azure_c_shared_utility/xio.h)
+
+[tlsio.h](https://github.com/Azure/azure-c-shared-utility/blob/master/inc/azure_c_shared_utility/xio.h)
 
 
 ## Exposed API
@@ -87,19 +89,150 @@ typedef void(*ON_IO_ERROR)(void* context);
  ```c
  typedef struct TLSIO_CONFIG_TAG
  {
- 	const char* hostname;
- 	int port;
+  	const char* hostname;
+    int port;
  } TLSIO_CONFIG;
  ```
-  **]**
+**]**
 
-  **SRS_TLSIO_30_006: [** The tlsio shall observe this internally defined timeout for its opening and sending processes. This value is considered an emergency limit rather than a useful tuning parameter, so it is not adjustable via the more expensive get / set options system:
+**SRS_TLSIO_30_006: [** Tlsio adapters shall observe this internally defined timeout for its opening and sending processes. This value is considered an emergency limit rather than a useful tuning parameter, so it is not adjustable via the more expensive get / set options system:
   ```c
 #ifndef TLSIO_OPERATION_TIMEOUT_SECONDS
 #define TLSIO_OPERATION_TIMEOUT_SECONDS 40
 #endif // !TLSIO_OPERATION_TIMEOUT_SECONDS
   ```
-   **]**
+**]**
+
+**SRS_TLSIO_30_007: [** Tlsio adapters which use an internal buffer to pass data into the `on_bytes_received` callback shall size this buffer with this internally defined value.
+  ```c
+// The TLSIO_RECEIVE_BUFFER_SIZE has very little effect on performance, and is kept small
+// to minimize memory consumption.
+#ifndef TLSIO_RECEIVE_BUFFER_SIZE
+#define TLSIO_RECEIVE_BUFFER_SIZE 64
+#endif // !TLSIO_RECEIVE_BUFFER_SIZE
+  ```
+**]**
+
+## External State
+The external state of the tlsio adapter is determined by which of the adapter's interface functions have been called and which callbacks have been performed. The adapter's internal state should map cleanly to its external state, but the mapping is not necessarily 1:1. The external states are defined as follows:
+
+* TLSIO_STATE_EXT_CLOSED means either that the module is newly constructed by `tlsio_create`, or that the `tlsio_close` complete callback has been received from a `tlsio_close` call.
+* TLSIO_STATE_EXT_OPENING means that the `tlsio_open` call has completed successfully but the `on_tlsio_open_complete` callback has not been performed.
+* TLSIO_STATE_EXT_OPEN means that the `on_tlsio_open_complete` callback has returned with `IO_OPEN_OK`.
+* TLSIO_STATE_EXT_CLOSING means that the `tlsio_close` call has completed successfully but the `on_tlsio_close_complete` callback has not been performed.
+* TLSIO_STATE_EXT_ERROR is the state entered (or maintained) after one or more of the following occurrences:
+  * `tlsio_open` has returned an error
+  * `on_tlsio_open_complete` has been called with `IO_OPEN_ERROR`
+  * `on_ tlsio _error` has been called
+  * `tlsio_open`, `tlsio_send`, or `tlsio_close` are called during TLSIO_STATE_EXT_OPENING (invalid usage)
+  * `tlsio_open` is called during TLSIO_STATE_EXT_OPEN (invalid usage)
+  * `tlsio_open`, `tlsio_send`, or `tlsio_close` are called during TLSIO_STATE_EXT_CLOSING (invalid usage)
+  * `tlsio_open` or `tlsio_send` are called during TLSIO_STATE_EXT_ERROR (invalid usage)
+
+## State Transitions
+This list shows the effect of the calls as a function of state with happy internal functionality. Unhappy functionality is not shown because it always ends in TLSIO_STATE_EXT_ERROR, and the `tlsio_setoption` and `tlsio_getoptions` calls are not shown because they have no effect on state and are always allowed.
+
+<table>
+  <tr>From state **TLSIO_STATE_EXT_CLOSED**</tr>
+  <tr>
+    <td>tlsio_destroy</td>
+    <td>ok (destroyed)</td>
+  </tr>
+  <tr>
+    <td>tlsio_open</td>
+    <td>ok, enter TLSIO_STATE_OPENING</td>
+  </tr>
+  <tr>
+    <td>tlsio_close</td>
+    <td>fail, log error, remain in TLSIO_STATE_CLOSED (invalid usage)</td>
+  </tr>
+  <tr>
+    <td>tlsio_dowork</td>
+    <td>ok (does nothing), remain in TLSIO_STATE_CLOSED</td>
+  </tr>
+</table>
+
+<table>
+  <tr>From state **TLSIO_STATE_EXT_OPENING**</tr>
+  <tr>
+    <td>tlsio_destroy</td>
+    <td>log error, force immediate close, destroy (destroyed)</td>
+  </tr>
+  <tr>
+    <td>tlsio_open</td>
+    <td>fail, log error, enter TLSIO_STATE_ERROR (invalid usage)</td>
+  </tr>
+  <tr>
+    <td>tlsio_close</td>
+    <td>fail, log error, enter TLSIO_STATE_ERROR (invalid usage)</td>
+  </tr>
+  <tr>
+    <td>tlsio_dowork</td>
+    <td>ok (continue opening), remain in TLSIO_STATE_OPENING or enter TLSIO_STATE_OPEN</td>
+  </tr>
+</table>
+
+<table>
+  <tr>From state **TLSIO_STATE_EXT_OPEN**</tr>
+  <tr>
+    <td>tlsio_destroy</td>
+    <td>log error, force immediate close, destroy (destroyed)</td>
+  </tr>
+  <tr>
+    <td>tlsio_open</td>
+    <td>fail, log error, enter TLSIO_STATE_ERROR (invalid usage)</td>
+  </tr>
+  <tr>
+    <td>tlsio_close</td>
+    <td>ok, enter TLSIO _STATE_ CLOSING</td>
+  </tr>
+  <tr>
+    <td>tlsio_dowork</td>
+    <td>ok (send and receive as necessary), remain in TLSIO_STATE_OPEN</td>
+  </tr>
+</table>
+
+<table>
+  <tr>From state **TLSIO_STATE_EXT_CLOSING**</tr>
+  <tr>
+    <td>tlsio_destroy</td>
+    <td>log error, force immediate close, destroy (destroyed)</td>
+  </tr>
+  <tr>
+    <td>tlsio_open</td>
+    <td>fail, log error, enter TLSIO_STATE_ERROR (invalid usage)</td>
+  </tr>
+  <tr>
+    <td>tlsio_close</td>
+    <td>fail, log error, enter TLSIO_STATE_ERROR (invalid usage)</td>
+  </tr>
+  <tr>
+    <td>tlsio_dowork</td>
+    <td>ok (continue graceful closing) , remain in TLSIO_STATE_CLOSING or enter TLSIO_STATE_CLOSED</td>
+  </tr>
+</table>
+
+<table>
+  <tr>From state **TLSIO_STATE_EXT_ERROR**</tr>
+  <tr>
+    <td>tlsio_destroy</td>
+    <td>log error, force immediate close, destroy (destroyed)</td>
+  </tr>
+  <tr>
+    <td>tlsio_open</td>
+    <td>fail, log error, remain in TLSIO_STATE_ERROR (invalid usage)</td>
+  </tr>
+  <tr>
+    <td>tlsio_close</td>
+    <td>ok, force immediate close, enter TLSIO_STATE_CLOSED</td>
+  </tr>
+  <tr>
+    <td>tlsio_dowork</td>
+    <td>ok (does nothing), remain in TLSIO_STATE_ERROR</td>
+  </tr>
+</table>
+
+
 
 ## API Calls
 
