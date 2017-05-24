@@ -133,7 +133,7 @@ The external state of the tlsio adapter is determined by which of the adapter's 
 This list shows the effect of the calls as a function of state with happy internal functionality. Unhappy functionality is not shown because it always ends in TLSIO_STATE_EXT_ERROR. The `tlsio_setoption` and `tlsio_getoptions` calls are not shown because they have no effect on state and are always allowed. Calls to `tlsio_send` also do not affect state, but are allowed only during TLSIO_STATE_EXT_OPEN.
 
 <table>
-  <tr>From state **TLSIO_STATE_EXT_CLOSED**</tr>
+  <tr>From state <b>TLSIO_STATE_EXT_CLOSED</b></tr>
   <tr>
     <td>tlsio_destroy</td>
     <td>ok (destroyed)</td>
@@ -153,7 +153,7 @@ This list shows the effect of the calls as a function of state with happy intern
 </table>
 
 <table>
-  <tr>From state **TLSIO_STATE_EXT_OPENING**</tr>
+  <tr>From state <b>TLSIO_STATE_EXT_OPENING</b></tr>
   <tr>
     <td>tlsio_destroy</td>
     <td>log error, force immediate close, destroy (destroyed)</td>
@@ -173,7 +173,7 @@ This list shows the effect of the calls as a function of state with happy intern
 </table>
 
 <table>
-  <tr>From state **TLSIO_STATE_EXT_OPEN**</tr>
+  <tr>From state <b>TLSIO_STATE_EXT_OPEN</b></tr>
   <tr>
     <td>tlsio_destroy</td>
     <td>log error, force immediate close, destroy (destroyed)</td>
@@ -193,7 +193,7 @@ This list shows the effect of the calls as a function of state with happy intern
 </table>
 
 <table>
-  <tr>From state **TLSIO_STATE_EXT_CLOSING**</tr>
+  <tr>From state <b>TLSIO_STATE_EXT_CLOSING</b></tr>
   <tr>
     <td>tlsio_destroy</td>
     <td>log error, force immediate close, destroy (destroyed)</td>
@@ -213,7 +213,7 @@ This list shows the effect of the calls as a function of state with happy intern
 </table>
 
 <table>
-  <tr>From state **TLSIO_STATE_EXT_ERROR**</tr>
+  <tr>From state <b>TLSIO_STATE_EXT_ERROR</b></tr>
   <tr>
     <td>tlsio_destroy</td>
     <td>log error, force immediate close, destroy (destroyed)</td>
@@ -246,8 +246,8 @@ This list shows the effect of the calls as a function of state with happy intern
 * hello adf
 * world adf
 
-* **Unsent messages decision**: the tlsio adapter shall discard any unsent messages when it receives a “close” command.
-* parakeet
+*    **Unsent messages decision**: the tlsio adapter shall discard any unsent messages when it receives a “close” command.
+*   parakeet
 
 
 * **Reasons for unsent messages decision**
