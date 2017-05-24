@@ -234,30 +234,14 @@ This list shows the effect of the calls as a function of state with happy intern
 
 ## Design Decisions
 
-* frog
-* tlsio_openssl_compact_dowork
+**Retry decision**: the tlsio adapter shall not initiate error recovery of any sort.<br/>
+**Reason for retry decision**: Decisions such as how, when, and whether to retry after error are high level policy decisions that are deliberately deferred to the higher level modules that own the tilso adapter. The tlsio adapter is not competent to make any guesses about what the correct retry behavior should be.
 
+**Unsent messages decision**: the tlsio adapter shall discard any unsent messages when it receives a “close” command.<br/>**Reasons for unsent messages decision**:
+  1. This is consistent with existing tlsio adapters.<br/>
+  * Decisions about which messages should be re-sent after a (possibly lengthy) recovery must be deferred to higher level modules. Discarding all unsent messages upon “close” puts that responsibility where it belongs.
 
-
-
-* **Retry decision**: the tlsio adapter shall not initiate error recovery of any sort.
-* **Reason for retry decision**: Decisions such as how, when, and whether to retry after error are high level policy decisions that are deliberately deferred to the higher level modules that own the tilso adapter. The tlsio adapter is not competent to make any guesses about what the correct retry behavior should be.
-
-* hello adf
-* world adf
-
-*    **Unsent messages decision**: the tlsio adapter shall discard any unsent messages when it receives a “close” command.
-*   parakeet
-
-
-* **Reasons for unsent messages decision**
-
-
-  1.       This is consistent with existing tlsio adapters.
-  2.       Decisions about which messages should be re-sent after a (possibly lengthy) recovery must be deferred to higher level modules. Discarding all unsent messages upon “close” puts that responsibility where it belongs.
-
-No fake sends decision: although it would be possible to enqueue messages no matter what state the tlsio is in, the tlsio shall only accept messages for transmission when it is in the TLSIO_STATE_OPEN state.
-Reason for no fake sends decision:
+**No fake sends decision**: although it would be possible to enqueue messages no matter what state the tlsio is in, the tlsio shall only accept messages for transmission when it is in the TLSIO_STATE_OPEN state.<br/>**Reasons for no fake sends decision**:
 1.       This is consistent with existing tlsio adapters.
 2.       Accepting messages in other states amounts to poorly designed message queuing, and message queuing is already being implemented properly at higher levels.
 3.       Accepting messages in other states would require non-trivial design and unit test work and force the redesign of higher levels without adding any real functionality.
