@@ -3,22 +3,13 @@ tlsio
 
 ## Overview
 
-This specification defines generic behavior for tlsio adapters, which operate primarily through the `xio` interface and provide communication to remote systems over a TLS or similar secure channel.  
-
-### Retry Behavior
-The `xio` specification allows retry sequences (open/fail/close/open) that must succeed. This means it must work to `close` and the re-`open` an adapter after an error has occurred during either an IO error or an error during the `open` sequence.
-
-Here are some retry sequences defined for the use in requirements:
-* **Failed open retry** means a retry (close/open) that occurs after `dowork` fails to establish its connection to the server.
-* **Failed i/o retry** means a retry (close/open) that occurs after `dowork` has experienced a failure while sending or receiving messages through an established connection.
+This specification defines generic behavior for tlsio adapters, which operate primarily through the `xio` interface and provide communication to remote systems over a TLS or similar secure channel.
 
 ## References
 
 [TLS Protocol (RFC2246)](https://www.ietf.org/rfc/rfc2246.txt)
 
 [TLS Protocol (generic information)](https://en.wikipedia.org/wiki/Transport_Layer_Security)
-
-[OpenSSL](https://www.openssl.org/)
 
 [xio.h](https://github.com/Azure/azure-c-shared-utility/blob/master/inc/azure_c_shared_utility/xio.h)
 
@@ -51,51 +42,40 @@ typedef struct IO_INTERFACE_DESCRIPTION_TAG
     IO_SETOPTION concrete_io_setoption;
 } IO_INTERFACE_DESCRIPTION;
 ```
- **]**
+**]**
 
-**SRS_TLSIO_30_002: [** The tlsio shall report the open operation status using the IO_OPEN_RESULT enumerator defined in the `xio.h`:
+The following types are also referenced in individual requirements.
 ```c
+
 typedef enum IO_OPEN_RESULT_TAG
 {
     IO_OPEN_OK,
     IO_OPEN_ERROR,
     IO_OPEN_CANCELLED
 } IO_OPEN_RESULT;
-```
- **]**
 
-**SRS_TLSIO_30_003: [** The tlsio shall report the send operation status using the IO_SEND_RESULT enumerator defined in the `xio.h`:
-```c
 typedef enum IO_SEND_RESULT_TAG
 {
     IO_SEND_OK,
     IO_SEND_ERROR,
     IO_SEND_CANCELLED
 } IO_SEND_RESULT;
-```
- **]**
 
-**SRS_TLSIO_30_004: [** The tlsio shall call the callbacks functions defined in the `xio.h`:
-```c
 typedef void(*ON_BYTES_RECEIVED)(void* context, const unsigned char* buffer, size_t size);
 typedef void(*ON_SEND_COMPLETE)(void* context, IO_SEND_RESULT send_result);
 typedef void(*ON_IO_OPEN_COMPLETE)(void* context, IO_OPEN_RESULT open_result);
 typedef void(*ON_IO_CLOSE_COMPLETE)(void* context);
 typedef void(*ON_IO_ERROR)(void* context);
-```
- **]**
 
- **SRS_TLSIO_30_005: [** The tlsio shall receive the connection information using the TLSIO_CONFIG structure defined in `tlsio.h`:
- ```c
  typedef struct TLSIO_CONFIG_TAG
  {
-  	const char* hostname;
+    const char* hostname;
     int port;
  } TLSIO_CONFIG;
  ```
-**]**
 
-**SRS_TLSIO_30_006: [** Tlsio adapters shall observe this internally defined timeout for its opening and sending processes. This value is considered an emergency limit rather than a useful tuning parameter, so it is not adjustable via the more expensive get / set options system:
+
+**SRS_TLSIO_30_006: [** Tlsio adapter implementations shall define and observe the internally defined `TLSIO_OPERATION_TIMEOUT_SECONDS` timeout value for opening, closing, and sending processes. This value is considered an emergency limit rather than a useful tuning parameter, so it is not adjustable via the more expensive get / set options system:
   ```c
 #ifndef TLSIO_OPERATION_TIMEOUT_SECONDS
 #define TLSIO_OPERATION_TIMEOUT_SECONDS 40
@@ -103,7 +83,7 @@ typedef void(*ON_IO_ERROR)(void* context);
   ```
 **]**
 
-**SRS_TLSIO_30_007: [** Tlsio adapters which use an internal buffer to pass data into the `on_bytes_received` callback shall size this buffer with this internally defined value.
+**SRS_TLSIO_30_007: [** Tlsio implementations which use an internal buffer to pass data into the `on_bytes_received` callback shall define the size of this buffer with the internally defined `TLSIO_RECEIVE_BUFFER_SIZE` value.
   ```c
 // The TLSIO_RECEIVE_BUFFER_SIZE has very little effect on performance, and is kept small
 // to minimize memory consumption.
@@ -120,14 +100,9 @@ The external state of the tlsio adapter is determined by which of the adapter's 
 * TLSIO_STATE_EXT_OPENING means that the `tlsio_open` call has completed successfully but the `on_tlsio_open_complete` callback has not been performed.
 * TLSIO_STATE_EXT_OPEN means that the `on_tlsio_open_complete` callback has returned with `IO_OPEN_OK`.
 * TLSIO_STATE_EXT_CLOSING means that the `tlsio_close` call has completed successfully but the `on_tlsio_close_complete` callback has not been performed.
-* TLSIO_STATE_EXT_ERROR is the state entered (or maintained) after one or more of the following occurrences:
-  * `tlsio_open` has returned an error
+* TLSIO_STATE_EXT_ERROR is the state entered (or maintained) after either of the following occurrences:
   * `on_tlsio_open_complete` has been called with `IO_OPEN_ERROR`
   * `on_ tlsio _error` has been called
-  * `tlsio_open`, `tlsio_send`, or `tlsio_close` are called during TLSIO_STATE_EXT_OPENING (invalid usage)
-  * `tlsio_open` is called during TLSIO_STATE_EXT_OPEN (invalid usage)
-  * `tlsio_open`, `tlsio_send`, or `tlsio_close` are called during TLSIO_STATE_EXT_CLOSING (invalid usage)
-  * `tlsio_open` or `tlsio_send` are called during TLSIO_STATE_EXT_ERROR (invalid usage)
 
 ## State Transitions
 This list shows the effect of the calls as a function of state with happy internal functionality. Unhappy functionality is not shown because it always ends in TLSIO_STATE_EXT_ERROR. The `tlsio_setoption` and `tlsio_getoptions` calls are not shown because they have no effect on state and are always allowed. Calls to `tlsio_send` also do not affect state, but are allowed only during TLSIO_STATE_EXT_OPEN.
@@ -144,7 +119,7 @@ This list shows the effect of the calls as a function of state with happy intern
   </tr>
   <tr>
     <td>tlsio_close</td>
-    <td>fail, log error, remain in TLSIO_STATE_CLOSED (invalid usage)</td>
+    <td>fail, log error, remain in TLSIO_STATE_CLOSED (see "Usage error policy" below)</td>
   </tr>
   <tr>
     <td>tlsio_dowork</td>
@@ -153,18 +128,18 @@ This list shows the effect of the calls as a function of state with happy intern
 </table>
 
 <table>
-  <tr>From state <b>TLSIO_STATE_EXT_OPENING</b></tr>
+  <tr>From state <b>TLSIO_STATE_EXT_OPENING</b> (guaranteed to exit by timeout)</tr>
   <tr>
     <td>tlsio_destroy</td>
     <td>log error, force immediate close, destroy (destroyed)</td>
   </tr>
   <tr>
     <td>tlsio_open</td>
-    <td>fail, log error, enter TLSIO_STATE_ERROR (invalid usage)</td>
+    <td>fail, log error, remain in TLSIO_STATE_EXT_OPENING (see "Usage error policy" below)</td>
   </tr>
   <tr>
     <td>tlsio_close</td>
-    <td>fail, log error, enter TLSIO_STATE_ERROR (invalid usage)</td>
+    <td>fail, log error, remain in TLSIO_STATE_EXT_OPENING (see "Usage error policy" below)</td>
   </tr>
   <tr>
     <td>tlsio_dowork</td>
@@ -180,11 +155,11 @@ This list shows the effect of the calls as a function of state with happy intern
   </tr>
   <tr>
     <td>tlsio_open</td>
-    <td>fail, log error, enter TLSIO_STATE_ERROR (invalid usage)</td>
+    <td>fail, log error, remain in TLSIO_STATE_EXT_OPEN (see "Usage error policy" below)</td>
   </tr>
   <tr>
     <td>tlsio_close</td>
-    <td>ok, enter TLSIO _STATE_ CLOSING</td>
+    <td>ok, enter TLSIO_STATE_CLOSING</td>
   </tr>
   <tr>
     <td>tlsio_dowork</td>
@@ -193,18 +168,18 @@ This list shows the effect of the calls as a function of state with happy intern
 </table>
 
 <table>
-  <tr>From state <b>TLSIO_STATE_EXT_CLOSING</b></tr>
+  <tr>From state <b>TLSIO_STATE_EXT_CLOSING</b> (guaranteed to exit by timeout)</tr>
   <tr>
     <td>tlsio_destroy</td>
     <td>log error, force immediate close, destroy (destroyed)</td>
   </tr>
   <tr>
     <td>tlsio_open</td>
-    <td>fail, log error, enter TLSIO_STATE_ERROR (invalid usage)</td>
+    <td>fail, log error, remain in TLSIO_STATE_EXT_CLOSING (see "Usage error policy" below)</td>
   </tr>
   <tr>
     <td>tlsio_close</td>
-    <td>fail, log error, enter TLSIO_STATE_ERROR (invalid usage)</td>
+    <td>fail, log error, remain in TLSIO_STATE_EXT_CLOSING (see "Usage error policy" below)</td>
   </tr>
   <tr>
     <td>tlsio_dowork</td>
@@ -220,7 +195,7 @@ This list shows the effect of the calls as a function of state with happy intern
   </tr>
   <tr>
     <td>tlsio_open</td>
-    <td>fail, log error, remain in TLSIO_STATE_ERROR (invalid usage)</td>
+    <td>fail, log error, remain in TLSIO_STATE_ERROR (see "Usage error policy" below)</td>
   </tr>
   <tr>
     <td>tlsio_close</td>
@@ -234,18 +209,54 @@ This list shows the effect of the calls as a function of state with happy intern
 
 ## Design Decisions
 
-**Retry decision**: the tlsio adapter shall not initiate error recovery of any sort.<br/>
-**Reason for retry decision**: Decisions such as how, when, and whether to retry after error are high level policy decisions that are deliberately deferred to the higher level modules that own the tilso adapter. The tlsio adapter is not competent to make any guesses about what the correct retry behavior should be.
+This section describes design decisions and their rationale. These decisions are not themselves part of the specifications, 
+but the individual specifications will conform to these decisions.
 
-**Unsent messages decision**: the tlsio adapter shall discard any unsent messages when it receives a “close” command.<br/>**Reasons for unsent messages decision**:
+**Retry policy**: the tlsio adapter shall not initiate error recovery of any sort.<br/>
+**Reason for retry decision**: Decisions such as how, when, and whether to retry after error are high level policy 
+decisions that are deliberately deferred to the higher level modules that own the tilso adapter. The tlsio adapter 
+is not competent to make any guesses about what the correct retry behavior should be.
+
+**Unsent messages policy**: the tlsio adapter shall discard any unsent messages when it receives a “close” command.<br/>
+**Reasons for unsent messages decision**:
   1. This is consistent with existing tlsio adapters.<br/>
-  * Decisions about which messages should be re-sent after a (possibly lengthy) recovery must be deferred to higher level modules. Discarding all unsent messages upon “close” puts that responsibility where it belongs.
+  2. Decisions about which messages should be re-sent after a (possibly lengthy) recovery must be deferred to higher level modules. Discarding all unsent messages upon `tlsio_close` puts that responsibility where it belongs.
 
-**No fake sends decision**: although it would be possible to enqueue messages no matter what state the tlsio is in, the tlsio shall only accept messages for transmission when it is in the TLSIO_STATE_OPEN state.<br/>**Reasons for no fake sends decision**:
+**No fake sends policy**: although it would be possible to enqueue messages no matter what state the tlsio is in, the 
+tlsio shall only accept messages for transmission when it is in the TLSIO_STATE_OPEN state.<br/>
+**Reasons for no fake sends decision**:
   1. This is consistent with existing tlsio adapters.
-  2. Accepting messages in other states amounts to poorly designed message queuing, and message queuing is already being implemented properly at higher levels.
+  2. Accepting messages in other states amounts to poorly designed message queuing, and message queuing is already implemented properly at higher levels.
   3. Accepting messages in other states would require non-trivial design and unit test work and force the redesign of higher levels without adding any real functionality.
 
+**Redundant callback during `tlsio_open`**: If `tlsio_open` fails, the tlsio adapter shall call the supplied `on_io_open_complete` 
+callback. This implies that the adapter must enter the TLSIO_STATE_ERROR state rather than remaining in TLSIO_STATE_CLOSED, 
+which would be more natural.<br/>
+**Reason for redundant callback**: The reason for callbacks in the first place is because asynchronous operations cannot 
+always provide all necessary feedback in their return values. In the case of a failed "begin operation" such as tlsio_open, 
+the failure return already contains all of the useful information, making the callback redundant. In a greenfield design, 
+simplicity would dictate that the callback not be made, but existing tlsio adapters already make this redundant callback, 
+so new tlsio adpaters must conform to this behavior.
+
+**Usage error policy**: If the caller commits usage errors, the tlsio adapter shall log the error and return failure, 
+but shall not alter its internal state. Usage errors include:
+* `tlsio_open`, `tlsio_send`, or `tlsio_close` are called during TLSIO_STATE_EXT_OPENING (invalid usage)
+* `tlsio_open` is called during TLSIO_STATE_EXT_OPEN (invalid usage)
+* `tlsio_open`, `tlsio_send`, or `tlsio_close` are called during TLSIO_STATE_EXT_CLOSING (invalid usage)
+* `tlsio_open` or `tlsio_send` are called during TLSIO_STATE_EXT_ERROR (invalid usage)
+
+**Reasons for usage error policy**:
+* The behavior of existing tlsio adapters is not consistent in this regard. For example, tlsio_arduino does change state on usage errors but tlsio_open_ssl, tlsio_mbedtls, tlsio_schannel, and tlsio_wolfssl do not. Fortunately the upper-level modules that use tlsio adapters do not perform improper usage, so they don't depend on improper usage acting in any particular way.
+* The tlsio adapter must handle and announce usage errors sensibly. But it is not possible to anticipate whether entering TLSIO_STATE_EXT_ERROR would aid the troubleshooting process or impede it, so the tlsio adapter shall favor design simplicity rather than getting its internal knickers in a knot by changing state when usage errors occur.
+
+**Failed `tlsio_send` calls policy**: If the `tlsio_send` operation fails, the tlsio adapter shall log an error, return failure, and call the message's callback appropriately, but the adapter shall not change its internal state.<br/>**Reason for failed `tlsio_send` policy**: Tlsio adapters conforming to this spec enqueue incoming messages rather than sending them directly, so the only possible errors are usage errors and out-of-memory errors. Neither of these situations calls for the tlsio adapter to change its state, so it won't.
+
+**Mandatory callbacks policy**: All of the callback functions in the tlsio adapter API are mandatory.<br/>
+**Reasons for mandatory callbacks policy**: 
+* Tlsio adapters are designed for asynchronous operation, and correct usage of the adapter is difficult or impossible without using all of the callbacks.
+* The higher-level SDK modules that use tlsio already provide the callback functions.
+* Allowing optional callback functions would significantly increase the number of required unit tests.
+* The cost to the caller of providing callback functions is trivial.
 
 ## API Calls
 
@@ -422,7 +433,9 @@ Connection completion may require multiple calls to `tlsio_dowork`. The number o
 
 **SRS_TLSIO_30_093: [** If the OpenSSL send was not able to send an entire enqueued message at once, subsequent calls to `tlsio_dowork` shall repeat OpenSSL send for the remaining bytes. **]**
 
+/// DELETE ME ///////////////////////////////////////////////////////////////////
 **SRS_TLSIO_30_094: [** If the send process encounters an internal error or calls `on_send_complete` with `IO_SEND_ERROR` due to either failure or timeout, it shall also call `on_io_error` and pass in the associated `on_io_error_context`. **]**
+/// DELETE ME //////////////////////////////////////////////////////////////////
 
 **SRS_TLSIO_30_095: [** If the send process fails before sending all of the bytes in an enqueued message, the `tlsio_dowork` shall call the message's `on_send_complete` along with its associated `callback_context` and `IO_SEND_ERROR`. **]**
 
@@ -460,3 +473,74 @@ OPTIONHANDLER_HANDLE tlsio_retrieveoptions(CONCRETE_IO_HANDLE tlsio_handle);
 **SRS_TLSIO_30_160: [** If the `tlsio_handle` parameter is NULL, `tlsio_retrieveoptions` shall do nothing except log an error and return _FAILURE_. **]**
 
 **SRS_TLSIO_30_161: [** The `tlsio_retrieveoptions` shall do nothing and return NULL. **]**
+
+### Error Recovery Testing
+The state transition behavior described earlier in this document fully specifies how the tlsio adapter should behave under 
+every possible call sequence, and it implies a set of unit tests which are extensive but not provably complete. This section specifies
+some additional unit tests which would capture failures which have been seen during retry sequences.
+
+The test conditions in this section are deliberately underspecified and left to the judgement of the implementer, and code commenting
+in the unit tests themselves will be considered suffucient documentation for any further detail. Any of a number of possible
+specific call sequences is acceptable as long as the unit test meets the criteria of the test requirement. 
+
+The word "retry" as used in the specs in this section means that:
+  1. A failure has been injected at some specified point
+  2. `tlsio_close` has been called and the `on_io_close_complete` callback has been received.
+  3. `tlsio_open` has been called successfully.
+  4. `tlsio_dowork` has been called as necessary to permit this sequence of events.
+  5. The `on_io_open_complete` callback has been received with `IO_OPEN_OK`.
+
+**SRS_TLSIO_30_200: [** The tlsio adapter shall successfully retry after an injected fault which causes 
+`on_io_open_complete` to return with `IO_OPEN_ERROR`. **]**
+
+**SRS_TLSIO_30_201: [** The tlsio adapter shall successfully retry after an injected fault which causes 
+ `on_io_error` to be called. **]**
+
+
+## Unit Testing API
+
+The unit testing API allows verification of internal tlsio adapter states without violating the principle of encapsulation.
+
+Because the `tlsio_verify_internal_state` function operates on internal implementation, there is no need
+to capture the details of its internal behavior in formal documentation. Code commenting is the correct 
+level of documentation.
+
+The Unit Testing API is only compiled when TLSIO_STATE_VERIFICATION_ENABLE is defined. The implementation 
+of the Unit Testing API may go directly within a #define block in the tlsio adapter's implementation file,
+or the implementation file may conditionally include a code file that lives with the unit tests.
+
+**SRS_TLSIO_30_300: [** If TLSIO_STATE_VERIFICATION_ENABLE is #defined in the compiler, the tlsio adapter shall 
+implement `tlsio_verify_internal_state` as defined in `tlsio.h`.
+```c
+
+typedef enum TLSIO_STATE_EXT_TAG
+{
+    TLSIO_STATE_EXT_CLOSED,
+    TLSIO_STATE_EXT_OPENING,
+    TLSIO_STATE_EXT_OPEN,
+    TLSIO_STATE_EXT_CLOSING,
+    TLSIO_STATE_EXT_ERROR
+} TLSIO_STATE_EXT;
+
+// tlsio_verify_internal_state compares the supplied expected_state with the internal state
+// of the tlsio adapter, and the expected_message_queue_length with the actual
+// message queue length, and uses xlogging to log any discrepancies. It returns 0 if there
+// are no discrepancies, and non-zero otherwise. The implementer may choose to verify
+// any additional conditions that make sense for the implementation. For example, the 
+// storage of callback functions from the `tlsio_open` call cannot be specified in 
+// a requirements document because it cannot be directly verified using the public API.
+// But such storage can and should be verified internally during the 
+// tlsio_verify_internal_state call.
+//
+// This function is not guaranteed to be accurate during tlsio callbacks.
+//
+// This function exists only for unit testing builds and must never be
+// called in production code.
+#ifdef TLSIO_STATE_VERIFICATION_ENABLE
+int tlsio_verify_internal_state(const CONCRETE_IO_HANDLE tlsio, 
+    TLSIO_STATE_EX expected_state, uint32_t expected_message_queue_length);
+#endif // TLSIO_STATE_VERIFICATION_ENABLE
+
+
+```
+**]**

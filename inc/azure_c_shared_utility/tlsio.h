@@ -12,7 +12,6 @@ extern "C" {
 
 MOCKABLE_FUNCTION(, const IO_INTERFACE_DESCRIPTION*, tlsio_get_interface_description);
 
-
 typedef struct TLSIO_CONFIG_TAG
 {
     const char* hostname;
@@ -34,12 +33,15 @@ typedef struct TLSIO_CONFIG_TAG
 DEFINE_ENUM(TLSIO_STATE_EXT, TLSIO_STATE_EXT_VALUES);
 
 // tlsio_verify_internal_state compares the supplied expected_state with the internal state
-// of the tlsio adapter and uses xlogging to log any discrepancies. It returns 0 if there
-// are no discrepancies, and non-zero otherwise.
-// The implementation for this function exists only for unit testing builds and must never be
+// of the tlsio adapter, and the expected_message_queue_length with the actual
+// message queue length, and uses xlogging to log any discrepancies. It returns 0 if there
+// are no discrepancies, and non-zero otherwise. This function is not guaranteed to be 
+// accurate during tlsio callbacks.
+// This function exists only for unit testing builds and must never be
 // called in production code.
 #ifdef TLSIO_STATE_VERIFICATION_ENABLE
-int tlsio_verify_internal_state(const CONCRETE_IO_HANDLE tlsio, TLSIO_STATE_EX expected_state);
+int tlsio_verify_internal_state(const CONCRETE_IO_HANDLE tlsio,
+	TLSIO_STATE_EX expected_state, uint32_t expected_message_queue_length);
 #endif // TLSIO_STATE_VERIFICATION_ENABLE
 
 #ifdef __cplusplus
