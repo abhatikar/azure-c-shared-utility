@@ -20,6 +20,7 @@ typedef struct TLSIO_CONFIG_TAG
     void* underlying_io_parameters;
 } TLSIO_CONFIG;
 
+#ifdef TLSIO_STATE_VERIFICATION_ENABLE
 
 // The tlsio external state values are the states of the tlsio adapter
 // as seen by the caller on the basis of calls made and callbacks received.
@@ -39,9 +40,9 @@ DEFINE_ENUM(TLSIO_STATE_EXT, TLSIO_STATE_EXT_VALUES);
 // accurate during tlsio callbacks.
 // This function exists only for unit testing builds and must never be
 // called in production code.
-#ifdef TLSIO_STATE_VERIFICATION_ENABLE
 int tlsio_verify_internal_state(const CONCRETE_IO_HANDLE tlsio,
 	TLSIO_STATE_EX expected_state, uint32_t expected_message_queue_length);
+
 #endif // TLSIO_STATE_VERIFICATION_ENABLE
 
 #ifdef __cplusplus

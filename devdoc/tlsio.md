@@ -512,35 +512,29 @@ or the implementation file may conditionally include a code file that lives with
 **SRS_TLSIO_30_300: [** If TLSIO_STATE_VERIFICATION_ENABLE is #defined in the compiler, the tlsio adapter shall 
 implement `tlsio_verify_internal_state` as defined in `tlsio.h`.
 ```c
+#ifdef TLSIO_STATE_VERIFICATION_ENABLE
 
-typedef enum TLSIO_STATE_EXT_TAG
-{
-    TLSIO_STATE_EXT_CLOSED,
-    TLSIO_STATE_EXT_OPENING,
-    TLSIO_STATE_EXT_OPEN,
-    TLSIO_STATE_EXT_CLOSING,
+// The tlsio external state values are the states of the tlsio adapter
+// as seen by the caller on the basis of calls made and callbacks received.
+#define TLSIO_STATE_EXT_VALUES \
+    TLSIO_STATE_EXT_CLOSED, \
+    TLSIO_STATE_EXT_OPENING, \
+    TLSIO_STATE_EXT_OPEN, \
+    TLSIO_STATE_EXT_CLOSING, \
     TLSIO_STATE_EXT_ERROR
-} TLSIO_STATE_EXT;
+
+DEFINE_ENUM(TLSIO_STATE_EXT, TLSIO_STATE_EXT_VALUES);
 
 // tlsio_verify_internal_state compares the supplied expected_state with the internal state
 // of the tlsio adapter, and the expected_message_queue_length with the actual
 // message queue length, and uses xlogging to log any discrepancies. It returns 0 if there
-// are no discrepancies, and non-zero otherwise. The implementer may choose to verify
-// any additional conditions that make sense for the implementation. For example, the 
-// storage of callback functions from the `tlsio_open` call cannot be specified in 
-// a requirements document because it cannot be directly verified using the public API.
-// But such storage can and should be verified internally during the 
-// tlsio_verify_internal_state call.
-//
-// This function is not guaranteed to be accurate during tlsio callbacks.
-//
+// are no discrepancies, and non-zero otherwise. This function is not guaranteed to be 
+// accurate during tlsio callbacks.
 // This function exists only for unit testing builds and must never be
 // called in production code.
-#ifdef TLSIO_STATE_VERIFICATION_ENABLE
-int tlsio_verify_internal_state(const CONCRETE_IO_HANDLE tlsio, 
-    TLSIO_STATE_EX expected_state, uint32_t expected_message_queue_length);
+int tlsio_verify_internal_state(const CONCRETE_IO_HANDLE tlsio,
+	TLSIO_STATE_EX expected_state, uint32_t expected_message_queue_length);
+
 #endif // TLSIO_STATE_VERIFICATION_ENABLE
-
-
 ```
 **]**
