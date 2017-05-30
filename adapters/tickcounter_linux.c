@@ -30,6 +30,7 @@ TICK_COUNTER_HANDLE tickcounter_create(void)
         }
         else
         {
+            LogInfo("tickcounter_create: 0x%p, %d", result, result->init_time_value);
             result->current_ms = 0;
         }
     }
@@ -64,6 +65,7 @@ int tickcounter_get_current_ms(TICK_COUNTER_HANDLE tick_counter, tickcounter_ms_
         {
             TICK_COUNTER_INSTANCE* tick_counter_instance = (TICK_COUNTER_INSTANCE*)tick_counter;
             tick_counter_instance->current_ms = (tickcounter_ms_t)(difftime(time_value, tick_counter_instance->init_time_value) * 1000);
+            LogInfo("tickcounter_get_current_ms: 0x%p, %d-%d=%d", tick_counter, time_value, tick_counter_instance->init_time_value, tick_counter_instance->current_ms);
             *current_ms = tick_counter_instance->current_ms;
             result = 0;
         }
