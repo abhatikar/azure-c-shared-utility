@@ -64,6 +64,10 @@ int tickcounter_get_current_ms(TICK_COUNTER_HANDLE tick_counter, tickcounter_ms_
         else
         {
             TICK_COUNTER_INSTANCE* tick_counter_instance = (TICK_COUNTER_INSTANCE*)tick_counter;
+            if (time_value+1 == tick_counter_instance->init_time_value)
+            {
+                time_value =tick_counter_instance->init_time_value;
+            }
             tick_counter_instance->current_ms = (tickcounter_ms_t)(difftime(time_value, tick_counter_instance->init_time_value) * 1000);
             if (time_value < tick_counter_instance->init_time_value)
             {
